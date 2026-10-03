@@ -47,6 +47,19 @@ def _contains_sequence(password: str, minimum_length: int = 3) -> bool:
     return False
 
 
+def _is_common_password(password: str) -> bool:
+    """Return True for common passwords and simple variations."""
+    normalized = password.lower()
+    without_symbols = re.sub(r"[^a-z0-9]", "", normalized)
+    without_trailing_numbers = re.sub(r"\d+$", "", without_symbols)
+
+    return (
+        normalized in COMMON_PASSWORDS
+        or without_symbols in COMMON_PASSWORDS
+        or without_trailing_numbers in COMMON_PASSWORDS
+    )
+
+
 def analyze_password(password: str) -> AnalysisResult:
     """Evaluate a password without saving or returning the original value."""
     checks = {
@@ -56,23 +69,50 @@ def analyze_password(password: str) -> AnalysisResult:
         "Contains a lowercase letter": bool(re.search(r"[a-z]", password)),
         "Contains a number": bool(re.search(r"\d", password)),
         "Contains a special character": bool(re.search(r"[^A-Za-z0-9]", password)),
-        "Not a common password": password.lower() not in COMMON_PASSWORDS,
+        "Not a common password": not _is_common_password(password),
         "No character repeated three times": not bool(re.search(r"(.)\1{2,}", password)),
         "No predictable sequence": not _contains_sequence(password),
     }
 
     score = 0
-    score += 25 if checks["At least 12 characters"] else min(len(password) * 2, 20)
-    score += 10 if checks["At least 16 characters"] else 0
-    score += 10 if checks["Contains an uppercase letter"] else 0
-    score += 10 if checks["Contains a lowercase letter"] else 0
-    score += 10 if checks["Contains a number"] else 0
-    score += 10 if checks["Contains a special character"] else 0
+
+    # Award points based on password length.
+    if len(password) >= 16:
+        score += 35
+    elif len(password) >= 12:
+        score += 25
+    elif len(password) >= 8:
+        score += 15
+    else:
+        score += min(len(password), 7)
+
+    character_checks = (
+        "Contains an uppercase letter",
+        "Contains a lowercase letter",
+        "Contains a number",
+        "Contains a special character",
+    )
+
+    character_types = sum(checks[name] for name in character_checks)
+    score += character_types * 10
+
     score += 10 if checks["Not a common password"] else -35
-    score += 8 if checks["No character repeated three times"] else -10
-    score += 7 if checks["No predictable sequence"] else -15
+    score += 7 if checks["No character repeated three times"] else -10
+    score += 8 if checks["No predictable sequence"] else -15
+
     score = max(0, min(100, score))
 
+    # Limit ratings when important security requirements are missing.
+    if not checks["Not a common password"]:
+        score = min(score, 20)
+    if len(password) < 8:
+        score = min(score, 39)
+    elif len(password) < 12:
+        score = min(score, 64)
+    elif len(password) < 16:
+        score = min(score, 84)
+    if character_types < 3:
+        score = min(score, 64)
     if score < 40:
         rating = "Weak"
     elif score < 65:

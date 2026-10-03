@@ -42,6 +42,26 @@ class PasswordAnalyzerTests(unittest.TestCase):
         self.assertNotIn(fictional_password, repr(result))
         self.assertFalse(hasattr(result, "password"))
 
+    def test_common_password_variation_is_weak(self):
+        result = analyze_password("Password123!")
+        self.assertEqual(result.rating, "Weak")
+        self.assertLessEqual(result.score, 20)
+        self.assertFalse(result.checks["Not a common password"])
+
+    def test_short_complex_password_remains_weak(self):
+        result = analyze_password("R7!mK2@")
+        self.assertEqual(result.rating, "Weak")
+        self.assertLessEqual(result.score, 39)
+
+    def test_password_under_twelve_characters_is_not_strong(self):
+        result = analyze_password("R7!mK2@q")
+        self.assertEqual(result.rating, "Moderate")
+        self.assertLessEqual(result.score, 64)
+
+    def test_fewer_than_three_character_types_limits_rating(self):
+        result = analyze_password("fictionalphraseonly")
+        self.assertEqual(result.rating, "Moderate")
+        self.assertLessEqual(result.score, 64)
 
 if __name__ == "__main__":
     unittest.main()
