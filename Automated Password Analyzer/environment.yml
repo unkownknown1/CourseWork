@@ -1,0 +1,6 @@
+name: password-analyzer
+channels:
+  - defaults
+dependencies:
+  - python=3.13
+  - ipykernel
